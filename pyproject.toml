@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "space-robot-dq"
+version = "0.1.0"
+description = "Dual quaternion kinematics and dynamics for free-floating space robot manipulators"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Hadi Jahanshahi", email = "hadij@yorku.ca"},
+]
+keywords = [
+    "space robotics",
+    "dual quaternion",
+    "kinematics",
+    "free-floating",
+    "momentum conservation",
+    "generalized jacobian",
+    "screw theory",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "torch>=1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+examples = [
+    "matplotlib>=3.5",
+    "jupyter",
+]
+
+[project.urls]
+Homepage = "https://github.com/HJahanshahi/space-robot-dq"
+Documentation = "https://github.com/HJahanshahi/space-robot-dq#readme"
+Repository = "https://github.com/HJahanshahi/space-robot-dq"
+Issues = "https://github.com/HJahanshahi/space-robot-dq/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
