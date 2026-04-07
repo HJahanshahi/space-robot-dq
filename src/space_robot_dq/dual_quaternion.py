@@ -1,4 +1,8 @@
-"""Dual quaternion mathematics for space robot pose representation."""
+"""Dual quaternion mathematics for rigid body pose representation.
+
+This module is robot-agnostic — it provides the mathematical primitives
+used by the kinematics and dynamics modules.
+"""
 import numpy as np
 import warnings
 from scipy.spatial.transform import Rotation
@@ -6,11 +10,14 @@ from scipy.spatial.transform import Rotation
 
 class DualQuaternion:
     """
-    Dual quaternion class for representing rigid body transformations.
+    Dual quaternion for representing rigid body transformations.
     
-    A dual quaternion consists of:
-    - qr: real quaternion [w, x, y, z] (rotation)
-    - qd: dual quaternion [w, x, y, z] (translation)
+    A dual quaternion q = qr + ε·qd where:
+    - qr: real part [w, x, y, z] encodes rotation
+    - qd: dual part [w, x, y, z] encodes translation
+    
+    Provides singularity-free, compact (8 parameters) pose representation
+    with efficient composition via multiplication.
     """
     
     def __init__(self, qr=None, qd=None):
@@ -23,7 +30,7 @@ class DualQuaternion:
         self.normalize()
 
     def normalize(self):
-        """Normalize the dual quaternion - ensures unit length and orthogonality"""
+        """Normalize to unit dual quaternion (||qr||=1, qr·qd=0)."""
         norm_r = np.sqrt(np.sum(self.qr**2))
         if norm_r > np.finfo(float).eps:
             self.qr = self.qr / norm_r
@@ -33,7 +40,7 @@ class DualQuaternion:
                 self.qd = self.qd - dot_prod * self.qr
 
     def __mul__(self, other):
-        """Dual quaternion multiplication"""
+        """Dual quaternion multiplication (pose composition)."""
         qr = quaternion_multiply(self.qr, other.qr)
         qd = quaternion_multiply(self.qr, other.qd) + quaternion_multiply(self.qd, other.qr)
         result = DualQuaternion(qr, qd)
@@ -41,17 +48,17 @@ class DualQuaternion:
         return result
 
     def multiply(self, other):
-        """Alias for multiplication"""
+        """Alias for __mul__."""
         return self.__mul__(other)
 
     def conjugate(self):
-        """Dual quaternion conjugate"""
+        """Dual quaternion conjugate (= inverse for unit DQ)."""
         qr = np.array([self.qr[0], -self.qr[1], -self.qr[2], -self.qr[3]])
         qd = np.array([self.qd[0], -self.qd[1], -self.qd[2], -self.qd[3]])
         return DualQuaternion(qr, qd)
 
     def to_matrix(self):
-        """Convert dual quaternion to 4x4 transformation matrix"""
+        """Convert to 4×4 homogeneous transformation matrix."""
         R = self.to_rotation_matrix()
         p = self.get_translation()
         T = np.eye(4)
@@ -60,35 +67,32 @@ class DualQuaternion:
         return T
 
     def to_rotation_matrix(self):
-        """Convert quaternion to 3x3 rotation matrix"""
+        """Extract 3×3 rotation matrix."""
         w, x, y, z = self.qr
-        R = np.array([
+        return np.array([
             [1 - 2*y**2 - 2*z**2,  2*x*y - 2*w*z,        2*x*z + 2*w*y],
             [2*x*y + 2*w*z,        1 - 2*x**2 - 2*z**2,  2*y*z - 2*w*x],
             [2*x*z - 2*w*y,        2*y*z + 2*w*x,        1 - 2*x**2 - 2*y**2]
         ])
-        return R
 
     def get_translation(self):
-        """Extract translation vector from dual part."""
+        """Extract 3D translation vector."""
         qr_conj = np.array([self.qr[0], -self.qr[1], -self.qr[2], -self.qr[3]])
         result = 2.0 * quaternion_multiply(self.qd, qr_conj)
         return result[1:4]
 
     def to_pose(self):
-        """Extract pose components (rotation matrix and position vector)"""
-        R = self.to_rotation_matrix()
-        p = self.get_translation()
-        return R, p
+        """Extract (R, p) tuple: 3×3 rotation matrix and 3D position."""
+        return self.to_rotation_matrix(), self.get_translation()
 
     @staticmethod
     def from_screw(theta, d, l, m):
         """
-        Create dual quaternion from screw parameters.
+        Create from screw parameters.
         
         Args:
             theta: rotation angle (rad)
-            d: translation along axis (pitch * theta)
+            d: translation along axis
             l: unit direction vector (3,)
             m: moment vector (3,)
         """
@@ -111,10 +115,10 @@ class DualQuaternion:
     @staticmethod
     def from_pose(R, p):
         """
-        Convert rotation matrix and position to dual quaternion.
+        Create from rotation matrix and position.
         
         Args:
-            R: 3x3 rotation matrix
+            R: 3×3 rotation matrix
             p: 3D position vector
         """
         tr = np.trace(R)
@@ -146,43 +150,32 @@ class DualQuaternion:
         
         qr = np.array([w, x, y, z])
         qd = 0.5 * quaternion_multiply(np.array([0.0, p[0], p[1], p[2]]), qr)
-        
         return DualQuaternion(qr, qd)
 
 
 def quaternion_multiply(q1, q2):
-    """
-    Quaternion multiplication (Hamilton product).
-    
-    Args:
-        q1, q2: quaternions [w, x, y, z]
-    
-    Returns:
-        product quaternion [w, x, y, z]
-    """
+    """Hamilton product of two quaternions [w, x, y, z]."""
     q1 = np.array(q1).reshape(4)
     q2 = np.array(q2).reshape(4)
-    
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
-    
-    w = w1*w2 - x1*x2 - y1*y2 - z1*z2
-    x = w1*x2 + x1*w2 + y1*z2 - z1*y2
-    y = w1*y2 - x1*z2 + y1*w2 + z1*x2
-    z = w1*z2 + x1*y2 - y1*x2 + z1*w2
-    
-    return np.array([w, x, y, z])
+    return np.array([
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2,
+    ])
 
 
 def log_dq(dq):
     """
-    Compute logarithm of dual quaternion (spatial velocity twist).
+    Logarithm of dual quaternion → 6D spatial velocity twist.
     
     Args:
-        dq: DualQuaternion object
+        dq: DualQuaternion
     
     Returns:
-        xi: 6D spatial velocity [rotation; translation]
+        xi: (6,) twist [rotation(3); translation(3)]
     """
     qr_w = dq.qr[0]
     qr_v = dq.qr[1:4]
@@ -207,45 +200,29 @@ def log_dq(dq):
     
     xi_rotation = theta * l
     xi_translation = theta * m + d * l
-    xi = np.concatenate([xi_rotation, xi_translation]).reshape(6)
-    
-    return xi
+    return np.concatenate([xi_rotation, xi_translation]).reshape(6)
 
 
 def quaternion_to_rotation_matrix(q):
-    """
-    Convert quaternion [w, x, y, z] to 3x3 rotation matrix.
-    """
+    """Convert quaternion [w,x,y,z] to 3×3 rotation matrix."""
     w, x, y, z = q
-    R = np.array([
+    return np.array([
         [1 - 2*y**2 - 2*z**2,  2*x*y - 2*w*z,        2*x*z + 2*w*y],
         [2*x*y + 2*w*z,        1 - 2*x**2 - 2*z**2,  2*y*z - 2*w*x],
         [2*x*z - 2*w*y,        2*y*z + 2*w*x,        1 - 2*x**2 - 2*y**2]
     ])
-    return R
 
 
 def quaternion_multiply_torch(q1, q2):
-    """
-    Quaternion multiplication in PyTorch.
-    
-    Args:
-        q1, q2: quaternions [w, x, y, z] as torch tensors
-    """
+    """Quaternion multiplication in PyTorch."""
     import torch
-    
     w1, x1, y1, z1 = q1[0], q1[1], q1[2], q1[3]
     w2, x2, y2, z2 = q2[0], q2[1], q2[2], q2[3]
-    
-    w = w1*w2 - x1*x2 - y1*y2 - z1*z2
-    x = w1*x2 + x1*w2 + y1*z2 - z1*y2
-    y = w1*y2 - x1*z2 + y1*w2 + z1*x2
-    z = w1*z2 + x1*y2 - y1*x2 + z1*w2
-    
-    result = torch.stack([w, x, y, z])
+    result = torch.stack([
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2,
+    ])
     norm = torch.norm(result)
-    
-    if norm > 1e-8:
-        return result / norm
-    else:
-        return result
+    return result / norm if norm > 1e-8 else result
