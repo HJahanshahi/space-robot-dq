@@ -27,7 +27,7 @@ Quick start::
     dyn = SpaceRobotDynamics(kinematics=kin, base_mass=50.0)
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Dual quaternion
 from .dual_quaternion import (
@@ -63,6 +63,18 @@ from .kinematics import (
     find_best_achievable_orientation,
 )
 
+# Control (resolved-rate tracking, base drift analysis)
+from .control import (
+    resolved_rate_qdot,
+    simulate_resolved_rate_tracking,
+    simulate_free_floating_trajectory,
+    propagate_base_pose,
+    rotation_angle_deg,
+    quintic_line,
+    simulate_pose_tracking,
+    tumbling_target,
+)
+
 # Dynamics
 from .dynamics import (
     LinkProperties,
@@ -92,4 +104,9 @@ __all__ = [
     "find_best_achievable_orientation",
     # Dynamics
     "SpaceRobotDynamics", "compute_generalized_jacobian", "compute_base_reaction", "skew",
+    # Control
+    "resolved_rate_qdot", "simulate_resolved_rate_tracking",
+    "simulate_free_floating_trajectory", "propagate_base_pose",
+    "rotation_angle_deg", "quintic_line",
+    "simulate_pose_tracking", "tumbling_target",
 ]

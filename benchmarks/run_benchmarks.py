@@ -18,6 +18,11 @@ Requires:
 
 import sys
 import os
+
+# Windows: redirected stdout defaults to cp1252, which cannot encode the
+# check-mark symbols used below. Force UTF-8 where supported.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import time
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -505,6 +510,100 @@ def benchmark_ik_accuracy():
            f"{np.median(pos_errors)*1000:.4f} mm")
 
 
+
+# ============================================================================
+# BENCHMARK 7: RESOLVED-RATE TRACKING (generalized vs fixed-base controller)
+# ============================================================================
+def benchmark_resolved_rate_tracking():
+    from space_robot_dq import (SpaceRobotDynamics, SpaceRobotKinematics,
+                                simulate_resolved_rate_tracking, quintic_line)
+
+    print("\n" + "="*70)
+    print("BENCHMARK 7: RESOLVED-RATE TRACKING")
+    print("  Closed-loop Cartesian tracking on the free-floating plant")
+    print("="*70)
+
+    kin = SpaceRobotKinematics()
+    dyn = SpaceRobotDynamics(kinematics=kin, base_mass=100.0)
+    q0 = np.array([0.3, 0.4, -0.2, 0.8, 0.1, 0.5, 0.0])
+    p0 = kin.forward_kinematics(q0)
+    p_des, v_des = quintic_line(p0, p0 + np.array([-0.20, 0.10, -0.15]), 4.0)
+
+    results = {}
+    for jac in ("fixed", "generalized"):
+        h = simulate_resolved_rate_tracking(
+            dyn, q0, p_des, v_des, 4.0, dt=0.01, jacobian=jac, kp=1.0)
+        rms = np.sqrt(np.mean(h["err"]**2))
+        results[jac] = (rms, h["err"][-1], h["base_att_deg"][-1],
+                        h["momentum"].max())
+
+    print("\n  0.27 m line move, 4 s, dt=10 ms, kp=1.0 (both controllers")
+    print("  run on the same momentum-conserving free-floating plant):\n")
+    print(f"  Controller     RMS err (mm)   Final err (mm)   Base drift (deg)")
+    print(f"  " + "-"*64)
+    for jac in ("fixed", "generalized"):
+        rms, fin, drift, _ = results[jac]
+        print(f"  {jac:<13s}  {rms*1000:12.3f}   {fin*1000:14.3f}   {drift:16.3f}")
+
+    ratio = results["fixed"][0] / results["generalized"][0]
+    print(f"\n  Error ratio (fixed / generalized): {ratio:.0f}x")
+
+    report("Generalized-Jacobian controller RMS error < 1 mm",
+           results["generalized"][0] < 1e-3,
+           f"{results['generalized'][0]*1000:.3f} mm")
+    report("Generalized outperforms fixed-base by > 10x",
+           ratio > 10.0, f"{ratio:.0f}x")
+    report("Momentum conserved during tracking simulation",
+           max(results["fixed"][3], results["generalized"][3]) < 1e-12,
+           f"{max(results['fixed'][3], results['generalized'][3]):.2e}")
+
+
+
+# ============================================================================
+# BENCHMARK 8: TUMBLING-TARGET POSE TRACKING (6-DOF, dual quaternion error)
+# ============================================================================
+def benchmark_pose_tracking():
+    from space_robot_dq import (SpaceRobotDynamics, SpaceRobotKinematics,
+                                simulate_pose_tracking, tumbling_target)
+
+    print("\n" + "="*70)
+    print("BENCHMARK 8: TUMBLING-TARGET POSE TRACKING")
+    print("  6-DOF station-keeping against a 5 deg/s tumbling client")
+    print("="*70)
+
+    kin = SpaceRobotKinematics()
+    dyn = SpaceRobotDynamics(kinematics=kin, base_mass=100.0)
+    q0 = np.array([0.3, 0.4, -0.2, 0.8, 0.1, 0.5, 0.0])
+    R0, p0 = kin.forward_kinematics_dq(q0).to_pose()
+    axis = np.array([0.3, 1.0, 0.5]); axis /= np.linalg.norm(axis)
+    pose_fn, twist_fn = tumbling_target(R0, p0, np.radians(5.0)*axis,
+                                        np.zeros(3))
+
+    res = {}
+    for jac in ("fixed", "generalized"):
+        h = simulate_pose_tracking(dyn, q0, pose_fn, twist_fn, 10.0,
+                                   dt=0.01, jacobian=jac, kp=1.0, ko=1.0)
+        res[jac] = (np.sqrt(np.mean(h["pos_err"]**2)),
+                    np.sqrt(np.mean(h["ori_err_deg"]**2)),
+                    h["momentum"].max())
+
+    print("\n  Controller     pos RMS (mm)   ori RMS (deg)")
+    print("  " + "-"*46)
+    for jac in ("fixed", "generalized"):
+        print(f"  {jac:<13s}  {res[jac][0]*1000:12.4f}   {res[jac][1]:13.5f}")
+    rp = res["fixed"][0]/res["generalized"][0]
+    ro = res["fixed"][1]/res["generalized"][1]
+    print(f"\n  Error ratio (fixed/generalized): {rp:.0f}x pos, {ro:.0f}x ori")
+
+    report("Pose tracking (J_g): pos RMS < 0.1 mm",
+           res["generalized"][0] < 1e-4, f"{res['generalized'][0]*1000:.4f} mm")
+    report("Pose tracking (J_g): ori RMS < 0.05 deg",
+           res["generalized"][1] < 0.05, f"{res['generalized'][1]:.5f} deg")
+    report("Momentum conserved during pose tracking",
+           max(res["fixed"][2], res["generalized"][2]) < 1e-12,
+           f"{max(res['fixed'][2], res['generalized'][2]):.2e}")
+
+
 # ============================================================================
 # SUMMARY TABLE (paper-ready)
 # ============================================================================
@@ -539,7 +638,7 @@ def print_summary():
   │    • Generalized Jacobian consistency (J_g·q̇ = J_m·q̇+J_b·ẋ_b)│
   │    • Heavy-base convergence (J_g → J_m as M_base → ∞)         │
   │                                                                │
-  │  Test suite: 51 unit tests + {PASS+FAIL} benchmark checks             │
+  │  Test suite: run `pytest` for unit tests; {PASS+FAIL} benchmark checks    │
   └─────────────────────────────────────────────────────────────────┘
 """)
 
@@ -562,6 +661,8 @@ if __name__ == "__main__":
         benchmark_performance,
         benchmark_momentum_conservation,
         benchmark_ik_accuracy,
+        benchmark_resolved_rate_tracking,
+        benchmark_pose_tracking,
     ]
 
     for section in sections:

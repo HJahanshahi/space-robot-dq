@@ -341,20 +341,33 @@ class SpaceRobotDynamics:
     # GENERALIZED JACOBIAN
     # ================================================================
     
-    def compute_generalized_jacobian(self, q):
+    def compute_generalized_jacobian(self, q, method="numerical",
+                                     return_inertia=False):
         """
         Generalized Jacobian accounting for base reaction.
         
         J_g = J_m - J_b · H_b⁻¹ · H_bm
         
+        Args:
+            q: (N,) joint angles
+            method: "numerical" (finite differences on FK, default) or
+                "analytical" (PoE geometric Jacobian; ~10x faster,
+                agrees with numerical to ~1e-9 — see benchmarks)
+            return_inertia: if True, also return (H_b, H_bm) so callers
+                stepping a simulation avoid recomputing them
+        
         Returns:
             J_g: (6×N) generalized Jacobian
             J_m: (6×N) fixed-base Jacobian
             J_b: (6×6) base-to-EE Jacobian
+            [H_b, H_bm]: only if return_inertia=True
         """
         q = np.array(q).flatten()[:self.n_joints]
         
-        J_m = self.kin.calculate_jacobian(q)
+        if method == "analytical":
+            J_m = self.kin.calculate_jacobian_analytical(q)
+        else:
+            J_m = self.kin.calculate_jacobian(q)
         H_b, H_bm = self.compute_inertia_matrices(q)
         
         p_ee = self.kin.forward_kinematics(q)
@@ -367,6 +380,8 @@ class SpaceRobotDynamics:
         J_b[3:6, 3:6] = -skew(r_ee)
         
         J_g = J_m - J_b @ np.linalg.inv(H_b) @ H_bm
+        if return_inertia:
+            return J_g, J_m, J_b, H_b, H_bm
         return J_g, J_m, J_b
     
     # ================================================================

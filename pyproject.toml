@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "space-robot-dq"
-version = "0.2.0"
+version = "0.3.0"
 description = "Dual quaternion kinematics and dynamics for free-floating space robot manipulators"
 readme = "README.md"
 license = {text = "MIT"}
@@ -36,13 +36,14 @@ classifiers = [
 dependencies = [
     "numpy>=1.21",
     "scipy>=1.7",
-    "torch>=1.9",
 ]
 
 [project.optional-dependencies]
+torch = ["torch>=1.9"]
 dev = [
     "pytest>=7.0",
     "pytest-cov",
+    "matplotlib>=3.5",
 ]
 examples = [
     "matplotlib>=3.5",

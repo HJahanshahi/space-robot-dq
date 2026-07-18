@@ -18,7 +18,13 @@ Date: 2025
 """
 
 import numpy as np
-import torch
+import sys
+
+
+def _is_torch_tensor(x):
+    """True if x is a torch.Tensor, without importing torch (optional dep)."""
+    torch = sys.modules.get("torch")
+    return torch is not None and isinstance(x, torch.Tensor)
 from dataclasses import dataclass, field
 from typing import List, Optional
 from scipy.optimize import minimize, Bounds
@@ -299,7 +305,7 @@ class SpaceRobotKinematics:
         Returns:
             (3,) end-effector position
         """
-        if isinstance(joint_angles, torch.Tensor):
+        if _is_torch_tensor(joint_angles):
             joint_angles = joint_angles.cpu().numpy()
         q = np.array(joint_angles).flatten()[:self.num_joints]
         R, p = self.forward_kinematics_dq(q).to_pose()
@@ -316,7 +322,7 @@ class SpaceRobotKinematics:
             position: (3,) end-effector position
             quaternion: (4,) orientation [w, x, y, z]
         """
-        if isinstance(joint_angles, torch.Tensor):
+        if _is_torch_tensor(joint_angles):
             joint_angles = joint_angles.cpu().numpy()
         q = np.array(joint_angles).flatten()[:self.num_joints]
         R, p = self.forward_kinematics_dq(q).to_pose()
@@ -526,7 +532,8 @@ def _get_kinematics():
 
 def compute_forward_kinematics(joint_angles):
     """Standalone FK (default 7-DOF SRS)."""
-    if isinstance(joint_angles, torch.Tensor):
+    if _is_torch_tensor(joint_angles):
+        torch = sys.modules["torch"]
         arr = joint_angles.cpu().numpy()
         return torch.tensor(_get_kinematics().forward_kinematics(arr), dtype=torch.float32)
     return _get_kinematics().forward_kinematics(np.array(joint_angles))
@@ -534,14 +541,14 @@ def compute_forward_kinematics(joint_angles):
 
 def forward_kinematics_simple(joint_angles):
     """Position-only FK (default 7-DOF SRS)."""
-    if isinstance(joint_angles, torch.Tensor):
+    if _is_torch_tensor(joint_angles):
         joint_angles = joint_angles.cpu().numpy()
     return _get_kinematics().forward_kinematics(np.array(joint_angles))
 
 
 def forward_kinematics_6dof(joint_angles):
     """6-DOF FK (default 7-DOF SRS)."""
-    if isinstance(joint_angles, torch.Tensor):
+    if _is_torch_tensor(joint_angles):
         joint_angles = joint_angles.cpu().numpy()
     return _get_kinematics().forward_kinematics_6dof(np.array(joint_angles))
 

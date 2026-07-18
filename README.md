@@ -6,6 +6,16 @@ Dual quaternion kinematics and dynamics for free-floating space robot manipulato
 
 `space-robot-dq` is a Python library for modeling N-DOF free-floating space robot manipulators using dual quaternion algebra and screw theory. Unlike ground-based robots, space manipulators have no fixed base. When the arm moves, the spacecraft reacts to conserve momentum. This library captures that dynamic coupling through the generalized Jacobian framework.
 
+<p align="center">
+  <img src="assets/figure6_pose_tracking.png" width="560" alt="6-DOF pose tracking of a tumbling target: the generalized-Jacobian controller holds micrometer/millidegree station-keeping while the fixed-base controller drifts by millimeters and tenths of a degree; the spacecraft base drifts 2.4 degrees during the maneuver."/>
+</p>
+<p align="center"><em>Station-keeping against a client tumbling at 5&deg;/s: the generalized-Jacobian controller (red) holds the grasp-ready pose ~500&times; more accurately than a controller that ignores the free-floating coupling (blue), while the spacecraft base drifts 2.4&deg; (bottom). Reproduce with <code>python examples/generate_paper_figures.py</code>.</em></p>
+
+## Authors
+
+- **Hadi Jahanshahi** — Department of Mechanical Engineering, York University (<hadij@yorku.ca>, <jahansha@yorku.ca>)
+- **Zheng H. Zhu** — Department of Mechanical Engineering, York University (<gzhu@yorku.ca>)
+
 ## Key Features
 
 - **Dual quaternion pose representation**: singularity-free, compact, and efficient
@@ -17,6 +27,10 @@ Dual quaternion kinematics and dynamics for free-floating space robot manipulato
 - **Momentum conservation**: computes base reaction to manipulator motion
 - **Generalized Jacobian**: maps joint velocities to end-effector velocity accounting for base coupling (Umetani & Yoshida, 1989)
 - **Dynamic manipulability**: quantifies velocity capability under free-floating constraints
+- **Resolved-rate control** *(new in v0.3.0)*: closed-loop Cartesian tracking on the free-floating plant with the generalized Jacobian, with null-space posture control and momentum-conserving base propagation
+- **Base attitude drift analysis** *(new in v0.3.0)*: quantifies spacecraft pointing loss caused by arm motion
+- **Tumbling-target pose tracking** *(new in v0.3.0)*: 6-DOF station-keeping against a tumbling client with dual-quaternion pose error (capture-approach scenario)
+- **Lightweight**: depends only on NumPy and SciPy (PyTorch is an optional extra)
 
 ## Installation
 
@@ -31,6 +45,24 @@ pip install -e ".[dev]"
 
 # With examples (matplotlib, jupyter)
 pip install -e ".[examples]"
+
+# With optional PyTorch tensor support
+pip install -e ".[torch]"
+```
+
+## Reproducing the Paper Figures
+
+```bash
+pip install matplotlib
+python examples/generate_paper_figures.py
+```
+
+This deterministically regenerates every figure of the accompanying paper
+and prints all cited numbers. Validation:
+
+```bash
+pytest                              # 153 unit tests
+python benchmarks/run_benchmarks.py # 19 benchmark checks
 ```
 
 ## Quick Start
@@ -207,7 +239,7 @@ End-effector at home configuration: [0, 0, 1.178] m
 ## Testing
 
 ```bash
-# Run all tests (130 tests across 4 robot configurations)
+# Run all tests (153 tests across 4 robot configurations)
 pytest
 
 # With coverage
@@ -237,9 +269,28 @@ maps joint velocities to end-effector velocity accounting for the dynamic coupli
 
 ## References
 
-- Umetani, Y., & Yoshida, K. (1989). "Resolved motion rate control of space manipulators with generalized Jacobian matrix." IEEE Transactions on Robotics and Automation, 5(6), 764-774.
+- Umetani, Y., & Yoshida, K. (1989). "Resolved motion rate control of space manipulators with generalized Jacobian matrix." IEEE Transactions on Robotics and Automation, 5(3), 303-314.
 - Dubowsky, S., & Papadopoulos, E. (1993). "The kinematics, dynamics, and control of free-flying and free-floating space robotic systems." IEEE Transactions on Robotics and Automation, 9(5), 531-543.
 - Lynch, K. M., & Park, F. C. (2017). Modern Robotics: Mechanics, Planning, and Control. Cambridge University Press.
+
+## Citing
+
+If you use this library in your research, please cite it (see also `CITATION.cff`):
+
+```bibtex
+@software{jahanshahi2026spacerobotdq,
+  author  = {Jahanshahi, Hadi and Zhu, Zheng H.},
+  title   = {space-robot-dq: A Python Library for Dual Quaternion Kinematics
+             and Dynamics of Free-Floating Space Robot Manipulators},
+  version = {0.3.0},
+  year    = {2026},
+  url     = {https://github.com/HJahanshahi/space-robot-dq},
+  note    = {Zenodo DOI: to be added upon release}
+}
+```
+
+A companion paper is under review at *Frontiers in Space Technologies*; this
+entry will be updated with the article citation upon publication.
 
 ## License
 

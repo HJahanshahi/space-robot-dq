@@ -26,3 +26,10 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+.venv/
+benchmark_output.txt
+figure_numbers.txt
+/figure*.png
+__pycache__/
+.pytest_cache/
+*.egg-info/

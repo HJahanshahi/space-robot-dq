@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "space-robot-dq: A Python Library for Dual Quaternion Kinematics and Dynamics of Free-Floating Space Robot Manipulators"
+type: software
+authors:
+  - family-names: Jahanshahi
+    given-names: Hadi
+    email: hadij@yorku.ca
+    affiliation: "Department of Mechanical Engineering, York University"
+  - family-names: Zhu
+    given-names: Zheng H.
+    email: gzhu@yorku.ca
+    affiliation: "Department of Mechanical Engineering, York University"
+version: 0.3.0
+date-released: 2026-07-18
+license: MIT
+repository-code: "https://github.com/HJahanshahi/space-robot-dq"
+keywords:
+  - space robotics
+  - dual quaternion
+  - free-floating manipulator
+  - momentum conservation
+  - generalized Jacobian
+  - resolved-rate control
+  - screw theory
